@@ -32,7 +32,7 @@ class LongPoller(object):
     def increment(self):
         while not self.stopped:
             self.cnt+=1
-            time.sleep(2)
+            time.sleep(0.2)
             self.tosend.put({'number':self.cnt,'ident':self.utok})
     def startincrementor(self,request=None):
         self.stopped=False
@@ -43,13 +43,13 @@ class LongPoller(object):
         self.utok=utok
         self.startincrementor()
 
-    def long_poll(self,request):
+    def poll(self,request):
 
         item = self.tosend.get()
         item['qsize']=self.tosend.qsize()
         rsp= Response('%s\n'%json.dumps(item))
         rsp.content_type='application/json'
-        time.sleep(1)
+        #time.sleep(1)
         return rsp
     def putaction(self,request):
         self.tosend.put({'content':request.params.get('c'),'ident':self.utok})
@@ -67,7 +67,7 @@ def longpolling(request,conn_info):
     if len(toks)>1:
         action = toks[1]
     else:
-        action='long_poll'
+        action='poll'
     if utok not in connections:
         print 'initializing poller for the first time.'
         connections[utok] = LongPoller(utok)
