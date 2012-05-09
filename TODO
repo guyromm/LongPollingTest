@@ -1,0 +1,4 @@
+* virtual sockets
+* separation into base classes
+* compatibility with noodles' websocket
+* one time token auth
