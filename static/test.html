@@ -5,6 +5,7 @@
 </head>
 <body>
 <div id='contents'></div>
+<a href="javascript:addrandom()">add random contents</a>
 <script type='text/javascript'>
 var makelp = function(cb) {
 $.getJSON('/lp/abcde',
@@ -13,6 +14,9 @@ console.log(rt);
 cb(rt);
 makelp(cb);
 });
+}
+function addrandom() {
+$.getJSON('/lp/abde/putaction?c='+encodeURIComponent(Math.random()+' from '+new Date()));
 }
 $(function() {
 makelp(function(dt) { $('#contents').text(JSON.stringify(dt)); });
