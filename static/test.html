@@ -1,0 +1,22 @@
+<!doctype html>
+<html>
+<head>
+<script type='text/javascript' src='/static/zepto.js'></script>
+</head>
+<body>
+<div id='contents'></div>
+<script type='text/javascript'>
+var makelp = function(cb) {
+$.getJSON('/lp/abcde',
+function(rt) {
+console.log(rt);
+cb(rt);
+makelp(cb);
+});
+}
+$(function() {
+makelp(function(dt) { $('#contents').text(JSON.stringify(dt)); });
+});
+</script>
+</body>
+</html>
