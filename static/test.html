@@ -6,12 +6,13 @@
 <body>
 <a href="javascript:addrandom()">add random contents</a> ::
 <a href="javascript:stop()">stop incrementor</a> :: 
-<a href="javascript:startincrementor()">resume incrementor</a>
-
+     <a href="javascript:startincrementor()">resume incrementor</a> ::
+     <span id='tokval'></span>
 <div id='contents'></div>
 <script type='text/javascript'>
+var tok = null;
 var makelp = function(cb) {
-     $.getJSON('/lp/abcde',
+     $.getJSON('/lp/'+tok,
 	       function(rt) {
 		   //console.log(rt);
 		   cb(rt);
@@ -19,16 +20,19 @@ var makelp = function(cb) {
 	       });
  };
 function addrandom() {
-    $.getJSON('/lp/abcde/putaction?c='+encodeURIComponent(Math.random()+' from '+new Date()));
+    $.getJSON('/lp/'+tok+'/putaction?c='+encodeURIComponent(Math.random()+' from '+new Date()));
 }
 function stop() {
-    $.getJSON('/lp/abcde/stop');
+    $.getJSON('/lp/'+tok+'/stop');
 }
 function startincrementor() {
-    $.getJSON('/lp/abcde/startincrementor');
+    $.getJSON('/lp/'+tok+'/startincrementor');
 }
-$(function() {
 
+$(function() {
+	tok = decodeURIComponent(/tok=(.*)/.exec(location.href)[1]);
+	if (!tok) tok='abcde';
+	$('#tokval').text(tok);
 	makelp(function(dt) { 
 		var nel = $('<div />').text(JSON.stringify(dt));
 		//nel.prependTo($('#contents'));

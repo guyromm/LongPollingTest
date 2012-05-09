@@ -27,32 +27,42 @@ def current_time(body):
 
 
 class LongPoller(object):
-    tosend = queue.Queue()
+    #uninitialized queue
+    _tosend = None
+
     stopped=False
     def increment(self):
         while not self.stopped:
             self.cnt+=1
             time.sleep(0.2)
-            self.tosend.put({'number':self.cnt,'ident':self.utok})
+            self.send({'number':self.cnt,'ident':self.utok})
+    def send(self,pkg):
+        self._tosend.put(pkg)
+    def read(self):
+        return self._tosend.get()
     def startincrementor(self,request=None):
         self.stopped=False
         self.g = Greenlet.spawn(self.increment)
         if request: return XResponse({'result':'ok','value':self.stopped})
     def __init__(self,utok):
+        self._tosend =  queue.Queue()
         self.cnt=0
         self.utok=utok
         self.startincrementor()
-
+        
     def poll(self,request):
 
-        item = self.tosend.get()
-        item['qsize']=self.tosend.qsize()
+        item = self.read()
+        if 'ident' in item and item['ident']!=self.utok:
+            raise Exception('somehow my (%s) tosend gave me %s'%(self.utok,item))
+
+        item['qsize']=self._tosend.qsize()
         rsp= Response('%s\n'%json.dumps(item))
         rsp.content_type='application/json'
         #time.sleep(1)
         return rsp
     def putaction(self,request):
-        self.tosend.put({'content':request.params.get('c'),'ident':self.utok})
+        self.send({'content':request.params.get('c'),'ident':self.utok})
         return XResponse({'result':'ok'})
     def stop(self,request):
         self.stopped=True
@@ -71,6 +81,7 @@ def longpolling(request,conn_info):
     if utok not in connections:
         print 'initializing poller for the first time.'
         connections[utok] = LongPoller(utok)
+        print 'just instantiated a new longpoller. got %s so far.'%(len(connections))
     lp = connections[utok]
     return getattr(lp,action)(request)
 
