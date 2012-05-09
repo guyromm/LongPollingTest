@@ -2,7 +2,7 @@
 '''
 filedesc: default controller file
 '''
-from noodles.http import Response
+from noodles.http import Response,XResponse
 import json
 
 def index(request):
@@ -28,15 +28,21 @@ def current_time(body):
 
 class LongPoller(object):
     tosend = queue.Queue()
+    stopped=False
     def increment(self):
-        while True:
+        while not self.stopped:
             self.cnt+=1
             time.sleep(2)
             self.tosend.put({'number':self.cnt,'ident':self.utok})
+    def startincrementor(self,request=None):
+        self.stopped=False
+        self.g = Greenlet.spawn(self.increment)
+        if request: return XResponse({'result':'ok','value':self.stopped})
     def __init__(self,utok):
         self.cnt=0
         self.utok=utok
-        self.g = Greenlet.spawn(self.increment)
+        self.startincrementor()
+
     def long_poll(self,request):
 
         item = self.tosend.get()
@@ -47,8 +53,10 @@ class LongPoller(object):
         return rsp
     def putaction(self,request):
         self.tosend.put({'content':request.params.get('c'),'ident':self.utok})
-        from noodles.http import XResponse
         return XResponse({'result':'ok'})
+    def stop(self,request):
+        self.stopped=True
+        return XResponse({'result':'ok','value':self.stopped})
 connections={}
 def longpolling(request,conn_info):
     global connections
