@@ -20,7 +20,7 @@ var makelp = function(cb) {
 	       });
  };
 function addrandom() {
-    $.getJSON('/lp/'+tok+'/putaction?c='+encodeURIComponent(Math.random()+' from '+new Date()));
+    $.getJSON('/lp/'+tok+'/putaction?pkg='+encodeURIComponent(JSON.stringify({'c':Math.random()+' from '+new Date()})));
 }
 function stop() {
     $.getJSON('/lp/'+tok+'/stop');

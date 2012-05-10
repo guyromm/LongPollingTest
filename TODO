@@ -1,7 +1,7 @@
 * virtual sockets
 D separation into base classes
-* compatibility with noodles' websocket (onmessage)
+D compatibility with noodles' websocket (onmessage)
 * one time token auth
-* auto restart on the client
+* auto restart after disconnect on the client
 D basic stress tests
 D greenlet decorator

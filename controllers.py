@@ -91,7 +91,7 @@ class LongPollingHandler(object):
 
     lastpoll = None
     @action
-    def poll(self,request):
+    def poll(self,pkg,request):
         #print 'poll(): greenlets: %s'%self.greenlets
         item = self.read()
         if 'ident' in item and item['ident']!=self.utok:
@@ -115,8 +115,8 @@ class IncrementorController(LongPollingHandler):
             gevent.sleep(0.2)
             self.send({'number':self.cnt,'ident':self.utok})
     @action
-    def putaction(self,request):
-        self.send({'content':request.params.get('c'),'ident':self.utok})
+    def putaction(self,pkg,request=None):
+        self.send({'content':pkg.get('c'),'ident':self.utok})
         return XResponse({'result':'ok'})
     @action
     def stop(self,request):
@@ -132,10 +132,9 @@ class IncrementorController(LongPollingHandler):
     def startincrementor(self,request=None):
         self.stopped=False
         self.increment()
-
-
         if request: return XResponse({'result':'ok','value':self.stopped})
-
+    def onmessage(self,pkg,request=None):
+        print('just received %s'%pkg)
     
 connections={}
 def longpolling(request,conn_info):
@@ -157,8 +156,9 @@ def longpolling(request,conn_info):
     assert not action.startswith('_'),"security violation"
     f = getattr(lp,action)
     assert ".action_wrapper" in str(f),"%s is not allowed to be executed externally."%(action)
-
-    return f(request)
+    pkg = json.loads(request.params.get('pkg','{}'))
+    if hasattr(lp,'onmessage'): lp.onmessage(pkg,request)
+    return f(pkg,request)
 
 
 #this is a demonstration of streaming
