@@ -6,3 +6,15 @@ $ pip intstall -r noodles/requirements.txt
 $ python runserver.py
 
 and then point your browser to /static/test.html
+
+
+**** a little stress testing ****
+launch server
+$ source bin/activate ; python runserver.py
+
+open your browser at http://localhost/static/test.html?tok=1234
+
+type the following in your terminal:
+$ ab -n10000 -c30 'http://localhost/lp/putaction?c=someradneomaction'
+
+proceed to watch the ensuing hilarity.
