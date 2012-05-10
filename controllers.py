@@ -15,12 +15,28 @@ from gevent import Greenlet,queue
 
 
 def action(f):
+    "decorator to mark permitted actions as such."
     def action_wrapper(*args,**kw):
-        f.allowed=True
         return f(*args,**kw)
 
     return action_wrapper
 
+def greenlet(f):
+    "decorator to mark methods as greenlets."
+    def greenlet_wrapper(*args,**kw):
+        inst=args[0]
+        name = f.__name__
+        print 'greenlet_wrapper(%s). %s'%(name,inst)
+        if not inst.greenlets: inst.greenlets = {} 
+        if name not in inst.greenlets:
+            inst.greenlets[name]=Greenlet.spawn(f,inst)        
+            inst.greenlets[name].utok = inst.utok
+        else:
+            print 'will not spawn already existing greenlet %s'%name
+            print inst.greenlets
+            assert inst.utok==inst.greenlets[name].utok,'wtfmate i am %s; and he is %s'%(inst.utok,inst.greenlets[name].utok)
+        return f
+    return greenlet_wrapper
 
 class LongPollingHandler(object):
     MAX_POLL_IDLETIME=3
@@ -29,15 +45,18 @@ class LongPollingHandler(object):
 
     def kill_greenlets(self,gn=None):
         #obtain the dict of greenlets we want to specifically kill
-        gt = dict([(gk,gl) for gk,gl in self.greenlets.items()\
-                       if ((gn and gk==gn) or True)])
-        gtv = gt.values()
-        gtk = gt.keys()
-        print 'beginning to kill %s greenlets'%(len(gtk))
+        if self.greenlets!=None:
+            gt = dict([(gk,gl) for gk,gl in self.greenlets.items()\
+                           if ((gn and gk==gn) or True)])
+            gtv = gt.values()
+            gtk = gt.keys()
+            print 'beginning to kill %s greenlets'%(len(gtk))
         #do the killing
-        gevent.killall(gtv,block=False)
+            gevent.killall(gtv,block=False)
         #del the dict references
-        for gtkey in gtk: del self.greenlets[gtkey]
+            for gtkey in gtk: del self.greenlets[gtkey]
+        else:
+            print 'greenlets dict is uninitialized.'
     def _kill(self):
         global connections
         self.kill_greenlets()
@@ -45,7 +64,7 @@ class LongPollingHandler(object):
             del connections[self.utok]
         except KeyError:
             print 'failed to delete myself (%s). am i already dead?'%self.utok 
-
+    @greenlet
     def _wiper(self):
         while True:
             if (datetime.datetime.now()-datetime.timedelta(seconds=self.MAX_POLL_IDLETIME))>(self.lastpoll):
@@ -56,12 +75,7 @@ class LongPollingHandler(object):
         self._tosend.put(pkg)
     def read(self):
         return self._tosend.get()
-    greenlets = {}
-    def spawn(self,name,cb):
-        if name not in self.greenlets:
-            self.greenlets[name]=Greenlet.spawn(cb)
-        else:
-            print 'will not spawn already existing greenlet %s'%name
+    greenlets = None
     def _protect_methods(self):
         for mn in dir(self):
             attr = getattr(self,mn)
@@ -72,7 +86,7 @@ class LongPollingHandler(object):
         self._tosend =  queue.Queue()
         self.utok=utok
         self.lastpoll = datetime.datetime.now()
-        self.spawn('wiper',self._wiper)
+        self._wiper()
         
 
     lastpoll = None
@@ -92,8 +106,9 @@ class LongPollingHandler(object):
         return rsp
 
 class IncrementorController(LongPollingHandler):
+    "Example incrementor handler class."
     stopped=False
-
+    @greenlet
     def increment(self):
         while not self.stopped:
             self.cnt+=1
@@ -116,7 +131,8 @@ class IncrementorController(LongPollingHandler):
     @action
     def startincrementor(self,request=None):
         self.stopped=False
-        self.spawn('increment',self.increment)
+        self.increment()
+
 
         if request: return XResponse({'result':'ok','value':self.stopped})
 

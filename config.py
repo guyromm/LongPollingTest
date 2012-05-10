@@ -41,7 +41,7 @@ MIDDLEWARES = [
                #'session.SessionMiddleware',
                ]
 
-SERVER_LOGTYPE = 'default'
+SERVER_LOGTYPE = 'supress'
 ####Mail parameters
 NOODLES_ERROR_RECIPIENT = [
                            #List with default error mail recipient
