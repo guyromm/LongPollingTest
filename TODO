@@ -1,4 +1,5 @@
 * virtual sockets
-* separation into base classes
-* compatibility with noodles' websocket
+D separation into base classes
+* compatibility with noodles' websocket (onmessage)
 * one time token auth
+* auto restart on the client

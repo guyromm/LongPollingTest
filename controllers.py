@@ -22,23 +22,22 @@ def action(f):
     return action_wrapper
 
 
-class LongPoller(object):
+class LongPollingHandler(object):
     MAX_POLL_IDLETIME=3
     #uninitialized queue
     _tosend = None
 
-    stopped=False
-
-
-    def increment(self):
-        while not self.stopped:
-            self.cnt+=1
-            gevent.sleep(0.2)
-            self.send({'number':self.cnt,'ident':self.utok})
-    def kill_greenlets(self):
-        gtk = [gl for gk,gl in self.greenlets.items()] # if gk!='wiper']
+    def kill_greenlets(self,gn=None):
+        #obtain the dict of greenlets we want to specifically kill
+        gt = dict([(gk,gl) for gk,gl in self.greenlets.items()\
+                       if ((gn and gk==gn) or True)])
+        gtv = gt.values()
+        gtk = gt.keys()
         print 'beginning to kill %s greenlets'%(len(gtk))
-        gevent.killall(gtk,block=False)
+        #do the killing
+        gevent.killall(gtv,block=False)
+        #del the dict references
+        for gtkey in gtk: del self.greenlets[gtkey]
     def _kill(self):
         global connections
         self.kill_greenlets()
@@ -59,13 +58,10 @@ class LongPoller(object):
         return self._tosend.get()
     greenlets = {}
     def spawn(self,name,cb):
-        self.greenlets[name]=Greenlet.spawn(cb)
-    @action
-    def startincrementor(self,request=None):
-        self.stopped=False
-        self.spawn('increment',self.increment)
-
-        if request: return XResponse({'result':'ok','value':self.stopped})
+        if name not in self.greenlets:
+            self.greenlets[name]=Greenlet.spawn(cb)
+        else:
+            print 'will not spawn already existing greenlet %s'%name
     def _protect_methods(self):
         for mn in dir(self):
             attr = getattr(self,mn)
@@ -77,11 +73,7 @@ class LongPoller(object):
         self.utok=utok
         self.lastpoll = datetime.datetime.now()
         self.spawn('wiper',self._wiper)
-        #self._protect_methods()
         
-        #test specific
-        self.cnt=0
-        self.startincrementor()
 
     lastpoll = None
     @action
@@ -91,13 +83,22 @@ class LongPoller(object):
         if 'ident' in item and item['ident']!=self.utok:
             raise Exception('somehow my (%s) tosend gave me %s'%(self.utok,item))
 
-        item['qsize']=self._tosend.qsize()
+        item['qsize']=self._tosend.qsize() #this is debug and can be removed
         rsp= Response('%s\n'%json.dumps(item))
         rsp.content_type='application/json'
         #gevent.sleep(1)
         self.lastpoll = datetime.datetime.now()
 
         return rsp
+
+class IncrementorController(LongPollingHandler):
+    stopped=False
+
+    def increment(self):
+        while not self.stopped:
+            self.cnt+=1
+            gevent.sleep(0.2)
+            self.send({'number':self.cnt,'ident':self.utok})
     @action
     def putaction(self,request):
         self.send({'content':request.params.get('c'),'ident':self.utok})
@@ -105,7 +106,21 @@ class LongPoller(object):
     @action
     def stop(self,request):
         self.stopped=True
+        self.kill_greenlets('incrementor')
         return XResponse({'result':'ok','value':self.stopped})
+    def __init__(self,utok):
+        #test specific
+        LongPollingHandler.__init__(self,utok)
+        self.cnt=0
+        self.startincrementor()
+    @action
+    def startincrementor(self,request=None):
+        self.stopped=False
+        self.spawn('increment',self.increment)
+
+        if request: return XResponse({'result':'ok','value':self.stopped})
+
+    
 connections={}
 def longpolling(request,conn_info):
     global connections
@@ -119,7 +134,7 @@ def longpolling(request,conn_info):
         action='poll'
     if utok not in connections:
         print 'initializing poller for the first time.'
-        connections[utok] = LongPoller(utok)
+        connections[utok] = IncrementorController(utok)
         print 'just instantiated a new longpoller. got %s so far.'%(len(connections))
     lp = connections[utok]
     #we do not allow calling internal methods at all.
