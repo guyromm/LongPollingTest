@@ -10,35 +10,104 @@
      <span id='tokval'></span>
 <div id='contents'></div>
 <script type='text/javascript'>
-var tok = null;
-var makelp = function(cb) {
-     $.getJSON('/lp/'+tok,
-	       function(rt) {
-		   //console.log(rt);
-		   cb(rt);
-		   makelp(cb);
-	       });
- };
+
+//taken from http://www.robertsosinski.com/2009/04/28/binding-scope-in-javascript/
+Function.prototype.bind = function(scope) {
+     var _function = this;
+     return function() { return _function.apply(scope, arguments);   }
+ }
+
+     var ps=null;
+
 function addrandom() {
-    $.getJSON('/lp/'+tok+'/putaction?pkg='+encodeURIComponent(JSON.stringify({'c':Math.random()+' from '+new Date()})));
+    ps.send('incrementor',{'action':'putaction'
+		,'c':Math.random()+' from '+new Date()});
+
 }
 function stop() {
-    $.getJSON('/lp/'+tok+'/stop');
+    ps.send('incrementor',{'action':'stop'});
 }
 function startincrementor() {
-    $.getJSON('/lp/'+tok+'/startincrementor');
+    ps.send('incrementor',{'action':'startincrementor'});
 }
 
+function PollSocket(params) {
+    this.assign_params = function(params)
+    {
+	var myfields = ['tok','url','cb','tok_cb'];
+	for (var i=0;i<myfields.length;i++)
+	    this[myfields[i]]=params[myfields[i]];
+
+    }
+    this.assign_params(params);
+
+    this.send = function(channel,pkg) {
+	var sendurl = this.url+this.token+'/'+channel+'/';
+	pkg.client_token = this.token;
+	console.log('posting to %o with action %o, token %o',sendurl,pkg.action,this.token);
+
+	$.post(sendurl,
+                      {action:pkg.action,
+			      pkg:JSON.stringify(pkg)
+		       },
+	       this.recv.bind(this),
+	       'json');
+    }
+
+    this.recv = function(rt) {
+	this.cb(rt);
+    }
+    this.poll = function() {
+	//console.log('polling with %o',this,this.token);
+	$.getJSON(this.url+this.token+'/poll',
+		  function(rt) {
+		      this.cb(rt);
+		      this.poll();
+		  }.bind(this));
+	
+    }
+
+    this._obtain_token_cb = function(rt) {
+	if (rt.result!='ok') throw 'bad result';
+	console.log('took connection token %o', rt.token);
+	this.token = rt.token;
+	if (this.tok_cb) this.tok_cb();
+	this.poll();
+    }
+    this.obtain_token = function() {
+	if (!this.url) throw "must have url";
+	$.getJSON(this.url+'_obtain_token',this._obtain_token_cb.bind(this))
+    }
+    this.initialize = function() {
+	if (!this.token) this.obtain_token();
+	else this.poll();
+    }
+
+    this.initialize();
+
+    return this;
+}
+
+
+
+var mycb = function(dt) { 
+    var nel = $('<div />').text(JSON.stringify(dt));
+    //nel.prependTo($('#contents'));
+    $('#contents').prepend(nel); 
+};
+
+var tok_cb = function() {
+    $('#tokval').text(this.token);
+}
 $(function() {
-	tok = decodeURIComponent(/tok=(.*)/.exec(location.href)[1]);
-	if (!tok) tok='abcde';
-	$('#tokval').text(tok);
-	makelp(function(dt) { 
-		var nel = $('<div />').text(JSON.stringify(dt));
-		//nel.prependTo($('#contents'));
-		$('#contents').prepend(nel); 
+	ps = new PollSocket({url:'/lp/',
+				 cb:mycb,
+				 tok_cb:tok_cb,
 	    });
+
 });
+
+
 </script>
 </body>
 </html>

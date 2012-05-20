@@ -14,7 +14,9 @@ def get_map():
     urlmap(map, [
 
                 ('/', 'controllers#index'),
-                ('/lp/{conn_info:.*}','controllers#longpolling'),
+                #a demonstration of long polling:
+                ('/lp/{conn_info:.*}','controllers#TestSock.router'),
+
                 ('/streamer/{conn_id}','controllers#streamer'),
                 ('/static/{path_info:.*}', 'noodles.utils.static#index',{'path': os.path.join(os.getcwd(), 'static')}),
 
