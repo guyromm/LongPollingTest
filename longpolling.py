@@ -20,14 +20,12 @@ def greenlet(f):
         name = f.__name__
         print 'greenlet_wrapper(%s). %s'%(name,inst)
         if not inst.greenlets: inst.greenlets = {} 
-        if name not in inst.greenlets:
+        if name not in inst.greenlets or inst.greenlets[name].successful():
             inst.greenlets[name]=Greenlet.spawn(f,inst)        
             print 'spawned a greenlet. now have %s'%len(inst.greenlets)
             #inst.greenlets[name].utok = inst.utok
         else:
             print 'will not spawn already existing greenlet %s'%name
-            print inst.greenlets
-            assert inst.utok==inst.greenlets[name].utok,'wtfmate i am %s; and he is %s'%(inst.utok,inst.greenlets[name].utok)
         return f
     return greenlet_wrapper
 

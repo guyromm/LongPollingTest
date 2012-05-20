@@ -61,6 +61,11 @@ class DecrementorController(LPHandler):
             self.cnt-=1
             gevent.sleep(0.5)
             self.send({'number':self.cnt})
+    @action
+    def reset(self,pkg=None,request=None):
+        self.cnt=10
+        self.decrement()
+        return XResponse({'result':'ok'})
     def __init__(self,chan,sock,utok):
         LPHandler.__init__(self,chan,sock,utok)
         self.decrement()
