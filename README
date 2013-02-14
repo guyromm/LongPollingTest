@@ -2,7 +2,8 @@ installation:
 
 $ virtualenv --no-site-packages .
 $ source bin/activate
-$ pip intstall -r noodles/requirements.txt
+$ git submodule update --init
+$ pip install -r noodles/requirements.txt
 $ python runserver.py
 
 and then point your browser to /static/test.html
